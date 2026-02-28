@@ -1,6 +1,8 @@
 use std::env;
 use std::error::Error;
 use regex::Regex;
+use scraper::{Html, Selector};
+
 
 #[derive(Debug)]
 struct UrlCheckSuccess {
@@ -33,4 +35,15 @@ fn extract_urls(markdown: &str) -> Vec<String> {
     }
 
     urls
+}
+
+
+fn extract_title(html: &str) -> Option<String> {
+    let document = Html::parse_document(html);
+    let selector = Selector::parse("title").expect("valid title selector");
+    document
+        .select(&selector)
+        .next()
+        .map(|node| node.text().collect::<String>().trim().to_string())
+        .filter(|title| !title.is_empty())
 }
