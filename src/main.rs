@@ -2,7 +2,7 @@ use std::env;
 use std::error::Error;
 use regex::Regex;
 use scraper::{Html, Selector};
-use reqwest::{StatusCode};
+use reqwest::{Client, StatusCode};
 
 #[derive(Debug)]
 struct UrlCheckSuccess {
@@ -37,6 +37,38 @@ fn extract_urls(markdown: &str) -> Vec<String> {
     urls
 }
 
+async fn process_url(client: Client, url: String) -> Result<UrlCheckSuccess, UrlCheckError> {
+    let response = match client.get(&url).send().await {
+        Ok(response) => response,
+        Err(error) => {
+            return Err(UrlCheckError {
+                url,
+                message: reqwest_error_message(&error),
+            });
+        }
+    };
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(UrlCheckError {
+            url,
+            message: format_status(status),
+        });
+    }
+
+    let body = match response.text().await {
+        Ok(body) => body,
+        Err(error) => {
+            return Err(UrlCheckError {
+                url,
+                message: reqwest_error_message(&error),
+            });
+        }
+    };
+
+    let title = extract_title(&body).unwrap_or_else(|| "NO TITLE FOUND".to_string());
+    Ok(UrlCheckSuccess { url, title })
+}
 
 fn extract_title(html: &str) -> Option<String> {
     let document = Html::parse_document(html);
