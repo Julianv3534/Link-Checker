@@ -162,3 +162,42 @@ fn reqwest_error_message(error: &reqwest::Error) -> String {
         "NETWORK ERROR".to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extracts_urls_from_markdown_formats() {
+        let input = r#"
+- [Example](https://example.com)
+- <https://rust-lang.org>
+- https://crates.io
+"#;
+
+        let urls = extract_urls(input);
+
+        assert_eq!(
+            urls,
+            vec![
+                "https://example.com".to_string(),
+                "https://rust-lang.org".to_string(),
+                "https://crates.io".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn extracts_title_from_html() {
+        let html = "<html><head><title>Sample Title</title></head><body></body></html>";
+        let title = extract_title(html);
+        assert_eq!(title.as_deref(), Some("Sample Title"));
+    }
+
+    #[test]
+    fn returns_none_when_title_missing() {
+        let html = "<html><head></head><body>No title</body></html>";
+        let title = extract_title(html);
+        assert_eq!(title, None);
+    }
+}
