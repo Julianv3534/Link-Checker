@@ -15,15 +15,36 @@ Output line format:
 [ TITLE_OR_ERROR ] ( https://example.com )
 ```
 
-## Usage
+## Requirements
+- Rust toolchain (Cargo)
 
+## Usage
 ```bash
-TODO
+cargo run -- <input.md> [output.md]
 ```
 
 - `input.md`: source Markdown file (required)
 - `output.md`: destination file (optional, defaults to `output.md`)
 
 ## Example
+Input markdown:
 
-TODO
+```md
+- [Example](https://example.com)
+- <https://rust-lang.org>
+- https://crates.io
+```
+
+Run:
+
+```bash
+cargo run -- links.md checked_links.md
+```
+
+## Makefile shortcuts
+```bash
+make test
+make build
+make run ARGS="-- links.md checked_links.md"
+make clean
+```
