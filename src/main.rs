@@ -1,5 +1,9 @@
 use std::env;
 use std::error::Error;
+use std::fs;
+use std::time::Duration;
+
+use futures::stream::{self, StreamExt};
 use regex::Regex;
 use scraper::{Html, Selector};
 use reqwest::{Client, StatusCode};
@@ -14,6 +18,47 @@ struct UrlCheckSuccess {
 struct UrlCheckError {
     url: String,
     message: String,
+}
+
+const CONCURRENCY_LIMIT: usize = 32;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 || args.len() > 3 {
+        eprintln!("Usage: {} <input.md> [output.md]", args[0]);
+        std::process::exit(1);
+    }
+
+    let input_path = &args[1];
+    let output_path = args.get(2).map(String::as_str).unwrap_or("output.md");
+
+    let markdown = fs::read_to_string(input_path)?;
+    let urls = extract_urls(&markdown);
+
+    let client = Client::builder()
+        .timeout(Duration::from_secs(20))
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .build()?;
+
+    let mut results = stream::iter(urls.into_iter().enumerate().map(|(idx, url)| {
+        let client = client.clone();
+        async move { (idx, process_url(client, url).await) }
+    }))
+    .buffer_unordered(CONCURRENCY_LIMIT)
+    .collect::<Vec<_>>()
+    .await;
+
+    results.sort_by_key(|(idx, _)| *idx);
+
+    let output = results
+        .into_iter()
+        .map(|(_, result)| format_output_line(result))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    fs::write(output_path, output)?;
+    Ok(())
 }
 
 fn extract_urls(markdown: &str) -> Vec<String> {
